@@ -1,0 +1,68 @@
+name: Captura diaria AEMET
+
+on:
+  # Permite ejecutar el workflow manualmente desde GitHub.
+  workflow_dispatch:
+
+  # Permite que Power Automate inicie el workflow.
+  repository_dispatch:
+    types:
+      - captura_aemet
+
+# Permite que el workflow guarde las capturas en el repositorio.
+permissions:
+  contents: write
+
+# Evita que dos ejecuciones modifiquen los archivos simultáneamente.
+concurrency:
+  group: captura-diaria-aemet
+  cancel-in-progress: false
+
+jobs:
+  captura:
+    name: Generar captura de AEMET
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Mostrar origen de la ejecución
+        run: |
+          echo "Evento que inició el workflow: ${{ github.event_name }}"
+
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Playwright
+        run: npm install --no-save playwright
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar captura de AEMET
+        run: node capture-aemet.js
+
+      - name: Comprobar que se ha generado la imagen
+        run: |
+          if [ ! -f "docs/aemet-manana.png" ]; then
+            echo "ERROR: No se ha generado docs/aemet-manana.png"
+            exit 1
+          fi
+
+      - name: Guardar las imágenes en el repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/
+
+          if git diff --cached --quiet; then
+            echo "La captura no contiene cambios que guardar."
+          else
+            git commit -m "Actualiza mapa diario de AEMET"
+            git push
+          fi
