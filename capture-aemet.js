@@ -42,15 +42,19 @@ async function acceptCookies(page) {
     }
   }
 
-  console.log('No se encontró el aviso de cookies o ya estaba aceptado.');
+  console.log(
+    'No se encontró el aviso de cookies o ya estaba aceptado.'
+  );
 }
 
 (async () => {
   let browser;
 
   try {
+    // Creamos la carpeta donde se guardarán las imágenes históricas.
     fs.mkdirSync('docs/archive', { recursive: true });
 
+    // Iniciamos Chromium en modo headless.
     browser = await chromium.launch({
       headless: true
     });
@@ -73,6 +77,7 @@ async function acceptCookies(page) {
       }
     );
 
+    // Intentamos cerrar el aviso de cookies.
     await acceptCookies(page);
 
     // Esperamos a que exista el mapa interactivo.
@@ -87,7 +92,8 @@ async function acceptCookies(page) {
     await page
       .waitForFunction(
         () => {
-          const mapElement = document.querySelector('.leaflet-container');
+          const mapElement =
+            document.querySelector('.leaflet-container');
 
           if (!mapElement) {
             return false;
@@ -118,47 +124,53 @@ async function acceptCookies(page) {
         );
       });
 
-   // Tiempo adicional para que aparezcan límites y colores.
-await page.waitForTimeout(2500);
+    // Tiempo adicional para que aparezcan límites y colores.
+    await page.waitForTimeout(2500);
 
-// Ocultamos los botones + y - del mapa antes de capturarlo.
-await page.addStyleTag({
-  content: `
-    .leaflet-control-zoom {
-      display: none !important;
-    }
-  `
-});
+    // Ocultamos los botones + y - del mapa antes de capturarlo.
+    await page.addStyleTag({
+      content: `
+        .leaflet-control-zoom {
+          display: none !important;
+        }
+      `
+    });
 
-await page.waitForTimeout(500);
+    await page.waitForTimeout(500);
 
-const tomorrowStamp = getTomorrowStampMadrid();
+    // Calculamos la fecha de mañana.
+    const tomorrowStamp = getTomorrowStampMadrid();
 
-const latestFile = 'docs/aemet-manana.png';
-const archiveFile =
-  `docs/archive/aemet-manana-${tomorrowStamp}.png`;
+    // Imagen que siempre contendrá la captura más reciente.
+    const latestFile = 'docs/aemet-manana.png';
 
-/*
- * Capturamos únicamente el contenedor del mapa.
- * Esto evita:
- * - la cabecera;
- * - el aviso de cookies;
- * - el panel izquierdo;
- * - el corte de la parte inferior.
- */
-await map.screenshot({
-  path: latestFile,
-  type: 'png'
-});
+    // Copia histórica con fecha.
+    const archiveFile =
+      `docs/archive/aemet-manana-${tomorrowStamp}.png`;
 
-    // Copia histórica correspondiente a la fecha de mañana.
+    /*
+     * Capturamos únicamente el contenedor del mapa.
+     * Esto evita:
+     * - la cabecera;
+     * - el aviso de cookies;
+     * - el panel izquierdo;
+     * - el corte de la parte inferior.
+     */
+    await map.screenshot({
+      path: latestFile,
+      type: 'png'
+    });
+
+    // Creamos una copia histórica correspondiente a la fecha de mañana.
     fs.copyFileSync(latestFile, archiveFile);
 
     console.log(`Imagen actualizada: ${latestFile}`);
     console.log(`Imagen archivada: ${archiveFile}`);
+
   } catch (error) {
     console.error('Error durante la captura:', error);
     process.exitCode = 1;
+
   } finally {
     if (browser) {
       await browser.close();
